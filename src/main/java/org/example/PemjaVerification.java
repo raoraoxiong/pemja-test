@@ -8,22 +8,33 @@ import pemja.core.PythonInterpreterConfig;
  * This program verifies that pemja can execute Python code normally,
  * especially testing the import of pyflink.
  */
-public class PemjaVerification {
+public final class PemjaVerification {
+
+    /**
+     * Private constructor to hide the implicit public one.
+     */
+    private PemjaVerification() {
+        throw new UnsupportedOperationException("Utility class");
+    }
 
     /**
      * Main method to run the verification.
      *
      * @param args command line arguments
      *             Format: [pythonExec] [pythonPath] [pythonHome]
-     *             Example: /path/to/python3 /path/to/python/modules /path/to/python/home
-     *             
+     *             Example: /path/to/python3 /path/to/modules
+     *                      /path/to/home
+     *
      *             For Python Standalone Builds:
-     *             - pythonExec: path to python executable (e.g., /opt/python/bin/python3)
-     *             - pythonPath: additional module search paths (optional)
-     *             - pythonHome: Python installation directory (e.g., /opt/python)
-     *                          This is REQUIRED for Python Standalone Builds
+     *             - pythonExec: path to python executable
+     *               (e.g., /opt/python/bin/python3)
+     *             - pythonPath: additional module search paths
+     *               (optional)
+     *             - pythonHome: Python installation directory
+     *               (e.g., /opt/python)
+     *               This is REQUIRED for Python Standalone Builds
      */
-    public static void main(String[] args) {
+    public static void main(final String[] args) {
         System.out.println("Starting Pemja verification...");
         System.out.println("=================================");
 
@@ -34,16 +45,25 @@ public class PemjaVerification {
 
         // Display configuration
         System.out.println("Configuration:");
-        System.out.println("  Python Executable: " + (pythonExec != null ? pythonExec : "default"));
-        System.out.println("  Python Path: " + (pythonPath != null ? pythonPath : "default"));
-        System.out.println("  Python Home: " + (pythonHome != null ? pythonHome : "default"));
+        System.out.println("  Python Executable: "
+                + (pythonExec != null ? pythonExec : "default"));
+        System.out.println("  Python Path: "
+                + (pythonPath != null ? pythonPath : "default"));
+        System.out.println("  Python Home: "
+                + (pythonHome != null ? pythonHome : "default"));
+
+        // Check PYTHONHOME from Java environment
+        String pythonHomeFromEnv = System.getenv("PYTHONHOME");
+        System.out.println("  PYTHONHOME (Java System.getenv): "
+                + (pythonHomeFromEnv != null
+                    ? pythonHomeFromEnv : "NOT SET"));
         System.out.println();
 
         try {
 
             // Create Python interpreter configuration with parameters
-            PythonInterpreterConfig.PythonInterpreterConfigBuilder configBuilder =
-                    PythonInterpreterConfig.newBuilder();
+            PythonInterpreterConfig.PythonInterpreterConfigBuilder
+                    configBuilder = PythonInterpreterConfig.newBuilder();
 
             if (pythonExec != null && !pythonExec.isEmpty()) {
                 configBuilder.setPythonExec(pythonExec);
@@ -52,7 +72,8 @@ public class PemjaVerification {
                 configBuilder.addPythonPaths(pythonPath);
             }
 
-            // IMPORTANT: setPythonHome in config is crucial for Python Standalone Builds
+            // IMPORTANT: setPythonHome in config is crucial
+            // for Python Standalone Builds
             if (pythonHome != null && !pythonHome.isEmpty()) {
                 configBuilder.setPythonHome(pythonHome);
             }
@@ -64,6 +85,47 @@ public class PemjaVerification {
             PythonInterpreter interpreter = new PythonInterpreter(config);
 
             System.out.println("✓ Pemja interpreter created successfully");
+
+            // Print actual Python Home configuration used by Pemja
+            System.out.println(
+                    "\n--- Actual Python Configuration ---");
+            try {
+                // Check PYTHONHOME from Python's perspective
+                interpreter.exec("import os");
+                interpreter.exec("import sys");
+
+                // Get PYTHONHOME from environment
+                interpreter.exec("pythonhome_env = "
+                        + "os.environ.get('PYTHONHOME', 'NOT SET')");
+                Object pythonHomeEnv = interpreter.get("pythonhome_env");
+                System.out.println("PYTHONHOME (from os.environ): "
+                        + pythonHomeEnv);
+
+                // Get sys.prefix and sys.exec_prefix
+                interpreter.exec("sys_prefix = sys.prefix");
+                interpreter.exec("sys_exec_prefix = sys.exec_prefix");
+                Object sysPrefix = interpreter.get("sys_prefix");
+                Object sysExecPrefix = interpreter.get("sys_exec_prefix");
+                System.out.println("sys.prefix: " + sysPrefix);
+                System.out.println("sys.exec_prefix: " + sysExecPrefix);
+
+                // Get Python executable path
+                interpreter.exec("sys_executable = sys.executable");
+                Object sysExecutable = interpreter.get("sys_executable");
+                System.out.println("sys.executable: " + sysExecutable);
+
+                // Get Python version
+                interpreter.exec(
+                        "python_version = sys.version.split()[0]");
+                Object pythonVersion = interpreter.get("python_version");
+                System.out.println("Python version: " + pythonVersion);
+
+                System.out.println(
+                        "-----------------------------------\n");
+            } catch (Exception e) {
+                System.err.println("Failed to get Python "
+                        + "configuration: " + e.getMessage());
+            }
 
             // Test 1: Basic Python execution
             System.out.println("\nTest 1: Basic Python execution");
@@ -80,12 +142,16 @@ public class PemjaVerification {
             System.out.println("\nTest 3: Import pyflink");
             try {
                 interpreter.exec("import pyflink");
-                interpreter.exec("print('PyFlink version:', pyflink.__version__)");
+                interpreter.exec("print('PyFlink version:', "
+                        + "pyflink.__version__)");
                 System.out.println("✓ PyFlink import successful");
             } catch (Exception e) {
-                System.out.println("✗ PyFlink import failed: " + e.getMessage());
-                System.out.println("  Note: Make sure pyflink is installed in your Python environment");
-                System.out.println("  You can install it using: pip install apache-flink");
+                System.out.println("✗ PyFlink import failed: "
+                        + e.getMessage());
+                System.out.println("  Note: Make sure pyflink is "
+                        + "installed in your Python environment");
+                System.out.println("  You can install it using: "
+                        + "pip install apache-flink");
             }
 
             // Test 4: Simple Python calculation
